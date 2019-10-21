@@ -1,4 +1,5 @@
 import numpy as np
+from tqdm import tqdm
 import argparse
 from sklearn.preprocessing import normalize
 import os.path as osp
@@ -22,8 +23,10 @@ if args.with_pdb:
 
 path=osp.join(args.r,'subspace')
 
+dist = []
+
 ####### calculating p-angles######
-for i in range(1,args.n):
+for i in tqdm(range(1,args.n)):
 	if i == 1:
 		eig_prev = np.load('{}/model_0.npz'.format(path))
 		eig_prev = eig_prev['eigvecs_cur']
@@ -32,5 +35,15 @@ for i in range(1,args.n):
 		
 	eig_cur = np.load('{}/model_{}.npz'.format(path,i))
 	eig_cur = eig_cur['eigvecs_cur']
-	_,s,_ = np.svd(np.matmul(eig_prev.transpose(),eig_cur))
-	print(np.norm(s,2))
+	eig_cur = normalize(eig_cur, axis =1, norm ='l2')
+	_,s,_ = np.linalg.svd(np.matmul(eig_prev.transpose(),eig_cur))
+	dist.append(np.linalg.norm(s,2))
+np.save(f'{args.r}/subspace/dist.npy',np.log(dist))
+
+import matplotlib.pyplot as plt
+plt.ylabel('Distance',size=20)
+plt.xlabel('Iteration',size=20)
+plt.plot(np.log(dist))
+plt.savefig(f'{args.r}/images/dist_log.png',dpi=1000)
+plt.close()
+
