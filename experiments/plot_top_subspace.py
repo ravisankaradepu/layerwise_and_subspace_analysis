@@ -23,8 +23,22 @@ if args.with_pdb:
 
 path=osp.join(args.r,'subspace')
 
-dist = []
 
+import math
+def sin(x):
+    return math.sin(x)**2
+def cos(x):
+    return math.cos(x)**2
+
+c=np.vectorize(cos)
+s=np.vectorize(sin)
+
+
+dist_grassman = []
+dist_binet = []
+dist_chorda = []
+dist_martin = []
+dist_proc = []
 ####### calculating p-angles######
 for i in tqdm(range(1,args.n)):
 	if i == 1:
@@ -36,14 +50,49 @@ for i in tqdm(range(1,args.n)):
 	eig_cur = np.load('{}/model_{}.npz'.format(path,i))
 	eig_cur = eig_cur['eigvecs_cur']
 	eig_cur = normalize(eig_cur, axis =1, norm ='l2')
-	_,s,_ = np.linalg.svd(np.matmul(eig_prev.transpose(),eig_cur))
-	dist.append(np.linalg.norm(s,2))
-np.save(f'{args.r}/subspace/dist.npy',np.log(dist))
+	_,v,_ = np.linalg.svd(np.matmul(eig_prev.transpose(),eig_cur))
+
+	dist_grassman.append(np.linalg.norm(v,2))
+	dist_binet.append(np.sqrt(1-np.prod(c(v))))
+	dist_chorda.append(np.sqrt(np.sum(s(v))))
+	dist_martin.append(np.sqrt(math.log(np.prod(1.0/c(v)))))
+	dist_proc.append(np.sqrt(np.sum(s(v/2.0))))
+
+np.savez(f'{args.r}/subspace/all_dist.npz', dist_grassman = np.log(dist_grassman), dist_binet =np.log(dist_binet), dist_chorda = np.log(dist_chorda), dist_martin = np.log(dist_martin), dist_proc = np.log(dist_proc))
 
 import matplotlib.pyplot as plt
 plt.ylabel('Distance',size=20)
 plt.xlabel('Iteration',size=20)
-plt.plot(np.log(dist))
+plt.plot(np.log(dist_grassman))
+plt.savefig(f'{args.r}/images/dist_grassman.png',dpi=1000)
+plt.close()
+
+import matplotlib.pyplot as plt
+plt.ylabel('Distance',size=20)
+plt.xlabel('Iteration',size=20)
+plt.plot(dist_binet)
+plt.savefig(f'{args.r}/images/dist_binet.png',dpi=1000)
+plt.close()
+
+import matplotlib.pyplot as plt
+plt.ylabel('Distance',size=20)
+plt.xlabel('Iteration',size=20)
+plt.plot(dist_chorda)
+plt.savefig(f'{args.r}/images/dist_chorda.png',dpi=1000)
+plt.close()
+
+import matplotlib.pyplot as plt
+plt.ylabel('Distance',size=20)
+plt.xlabel('Iteration',size=20)
+plt.plot(dist_martin)
+plt.savefig(f'{args.r}/images/dist_martin.png',dpi=1000)
+plt.close()
+
+import matplotlib.pyplot as plt
+plt.ylabel('Distance',size=20)
+plt.xlabel('Iteration',size=20)
+plt.plot(dist_grassman)
 plt.savefig(f'{args.r}/images/dist_log.png',dpi=1000)
 plt.close()
+
 

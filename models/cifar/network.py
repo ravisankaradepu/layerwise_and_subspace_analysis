@@ -488,42 +488,6 @@ class Network:
         def __init__(self, obj):
             super(Network.DenseNet3_40, self).__init__(obj, depth=40, growth_rate=12, reduction=1, bottleneck=False, dropRate=0.0)
             
-    ##########################################################################################
-    ################################## le net  ###############################################
-    ##########################################################################################
-
-    class LeNet(nn.Module):
-        def __init__(self, obj):
-            super(Network.LeNet, self).__init__()
-            self.conv1 = nn.Conv2d(obj.input_ch, 6, kernel_size=5)
-            self.conv2 = nn.Conv2d(6, 16, kernel_size=5)
-            dummy_out = self.dummy_forward(torch.zeros((10, obj.input_ch, obj.im_size, obj.im_size)))
-            out_size = dummy_out.view(dummy_out.size(0), -1)
-
-            self.fc1   = nn.Linear(out_size.size(1), 120)
-            self.fc2   = nn.Linear(120, 84)
-            self.fc3   = nn.Linear(84, 10)
-
-        def forward(self, x):
-            out = F.relu(self.conv1(x))
-            out = F.max_pool2d(out, 2)
-            out = F.relu(self.conv2(out))
-            out = F.max_pool2d(out, 2)
-            out = out.view(out.size(0), -1)
-            out = F.relu(self.fc1(out))
-            out = F.relu(self.fc2(out))
-            out = self.fc3(out)
-            return out
-
-        def dummy_forward(self, x):
-            with torch.no_grad():
-                out = F.relu(self.conv1(x))
-                out = F.max_pool2d(out, 2)
-                out = F.relu(self.conv2(out))
-                out = F.max_pool2d(out, 2)
-                return out
-
-
     ########################################################################################
     ################################# MOBILENET ############################################
     ########################################################################################
@@ -572,3 +536,118 @@ class Network:
             out = self.linear(out)
             return out
 
+    class FullyConnectedBlock(nn.Module):
+
+        def __init__(self, hidden_dim, num_hidden=2, skip=False):
+            
+            super(Network.FullyConnectedBlock, self).__init__()
+            self.hidden_dim = hidden_dim
+            self.num_hidden = num_hidden
+            self.skip = skip
+            self.lin = nn.Sequential(nn.Linear(self.hidden_dim, self.hidden_dim), nn.ReLU(), nn.Linear(self.hidden_dim, self.hidden_dim))
+
+        def forward(self, x):
+
+            out = F.relu(self.lin(x))
+            if self.skip:
+                out = out + x
+            return out
+
+
+    class FullyConnected(nn.Module):
+
+        def __init__(self, obj, num_hidden, skip):
+
+            super(Network.FullyConnected, self).__init__()
+            self.input_dim = obj.input_ch * obj.padded_im_size * obj.padded_im_size
+            self.hidden_dim = 500
+            self.num_classes = obj.num_classes
+            self.num_hidden = num_hidden
+            self.skip = skip
+            
+            self.layers = nn.Sequential()
+
+            self.layers.add_module('init', nn.Linear(self.input_dim, self.hidden_dim))
+            for i in range(self.num_hidden):
+                self.layers.add_module('hidden%d' % i, Network.FullyConnectedBlock(self.hidden_dim, skip=self.skip))
+            self.layers.add_module('last', nn.Linear(self.hidden_dim, self.num_classes))
+
+        def forward(self, x):
+
+            x = x.view(x.size(0), -1)
+            x = self.layers(x)
+
+            return x
+
+    def FullyConnected3(self, obj):
+
+        return Network.FullyConnected(obj, num_hidden=1, skip=False)
+
+    def FullyConnected5(self, obj):
+
+        return Network.FullyConnected(obj, num_hidden=2, skip=False)
+
+    def FullyConnected8(self, obj):
+
+        return Network.FullyConnected(obj, num_hidden=3, skip=False)
+
+    def FullyConnectedSkip3(self, obj):
+
+        return Network.FullyConnected(obj, num_hidden=1, skip=True)
+
+    def FullyConnectedSkip5(self, obj):
+
+        return Network.FullyConnected(obj, num_hidden=2, skip=True)
+
+    def FullyConnectedSkip8(self, obj):
+
+        return Network.FullyConnected(obj, num_hidden=3, skip=True)
+
+
+    class SimpleMNIST(nn.Module):
+
+        def __init__(self, obj):
+            super(Network.SimpleMNIST, self).__init__()
+            self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+            self.relu1 = nn.ReLU()
+            self.maxpool1 = nn.MaxPool2d(kernel_size=2, stride=2)
+            self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1)
+            self.relu2 = nn.ReLU()
+            self.maxpool2 = nn.MaxPool2d(kernel_size=2, stride=2)
+
+            self.lin3 = nn.Linear(64 * 6 * 6, 128)
+            self.relu3 = nn.ReLU()
+            self.lin4 = nn.Linear(128, 10)
+
+        def forward(self, x):
+            x = self.conv1(x)
+            x = self.relu1(x)
+            x = self.maxpool1(x)
+            x = self.conv2(x)
+            x = self.relu2(x)
+            x = self.maxpool2(x)
+            x = x.view(-1, 64 * 6 * 6)
+            x = self.lin3(x)
+            x = self.relu3(x)
+            x = self.lin4(x)
+            return x
+
+    class LeNet(nn.Module):
+        def __init__(self, obj):
+            super(Network.LeNet, self).__init__()
+            self.conv1 = nn.Conv2d(obj.input_ch, 6, 5)
+            self.conv2 = nn.Conv2d(6, 16, 5)
+            self.fc1   = nn.Linear(16*5*5, 120)
+            self.fc2   = nn.Linear(120, 84)
+            self.fc3   = nn.Linear(84, 10)
+
+        def forward(self, x):
+            out = F.relu(self.conv1(x))
+            out = F.max_pool2d(out, 2)
+            out = F.relu(self.conv2(out))
+            out = F.max_pool2d(out, 2)
+            out = out.view(out.size(0), -1)
+            out = F.relu(self.fc1(out))
+            out = F.relu(self.fc2(out))
+            out = self.fc3(out)
+            return out
